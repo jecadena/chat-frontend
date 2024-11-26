@@ -1,0 +1,61 @@
+<!-- ============================================================== -->
+<!-- Simple four boxes Row -->
+<!-- ==============================================================
+   -->
+
+   <!-- sample-page.component.html -->
+   <div class="row">
+    <div class="col-md-10">
+      <h6>{{ registroID }}</h6>
+      <p><strong>Glosa: </strong> {{ detPedido }}</p> 
+    </div>
+    <div class="col-md-2 text-right">
+      <button mat-raised-button color="primary" (click)="goBack()">REGRESAR</button>
+    </div>
+  </div>  
+
+  <div class="main-container">
+    <!-- Chat principal -->
+    <div class="chat-container">
+      <div #chatMessages class="chat-messages">
+        <div *ngFor="let msg of messages" class="message" [class.self]="msg.userId === userId"
+        [ngClass]="{
+          'self-message': msg.nombres === losnombres && msg.apellidos === losapellidos,
+          'other-message': !(msg.nombres === losnombres && msg.apellidos === losapellidos)
+        }">
+        <div class="message-content" 
+            [ngClass]="{
+              'self-message': msg.nombres === losnombres && msg.apellidos === losapellidos,
+              'other-message': !(msg.nombres === losnombres && msg.apellidos === losapellidos)
+            }">
+            <span class="timestamp">
+              <strong>{{ msg.nombres }} {{ msg.apellidos }}</strong>
+              <span class="message-time">{{ msg.timestamp | date: 'short' }}</span>
+            </span>
+            <p class="message-text">{{ msg.message }}</p>
+        </div>
+      </div>
+      </div>
+    
+      <div class="chat-input">
+        <input
+          type="text"
+          [(ngModel)]="message"
+          placeholder="Escribe tu mensaje..."
+        />
+        <button (click)="sendMessage()">Enviar</button>
+      </div>
+    </div>   
+  
+    <!-- Nuevo panel al costado derecho -->
+    <div class="info-panel">
+      <h3>Ingresar información</h3>
+      <button class="info-button">Tarifa</button>
+      <button class="info-button">Costo</button>
+      <button class="info-button">Línea Aérea</button>
+      <button class="info-button">Responsable</button>
+    </div>
+  </div>  
+
+  
+  

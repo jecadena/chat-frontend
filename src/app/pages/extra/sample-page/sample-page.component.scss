@@ -1,0 +1,223 @@
+.main-container {
+  display: flex;
+  gap: 20px; /* Espaciado entre el chat y el panel de información */
+  flex-wrap: wrap; /* Permite que los elementos se envuelvan en pantallas pequeñas */
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 80vh;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  flex: 2;
+  width: 100%;
+  background-image: url('http://192.168.1.119:4200/assets/images/backgrounds/bg_chat.png'); /* Ruta de la imagen */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  margin-top: 10px;
+}
+
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  padding: 10px;
+  background-color: transparent;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column; /* Asegura que los mensajes estén en columna */
+}
+
+.message {
+  padding: 0px;
+  margin: 0px 0;
+  border-radius: 0px;
+  background-color: transparent;
+  display: flex;
+  flex-direction: column; /* Permite que los mensajes se apilen verticalmente */
+
+  /* Justificación de los mensajes según su tipo */
+  &.self-message {
+      justify-content: flex-end; /* Alinea los mensajes propios a la derecha */
+  }
+
+  &.other-message {
+      justify-content: flex-start; /* Alinea los mensajes ajenos a la izquierda */
+  }
+}
+
+.message.self {
+  align-self: flex-end;
+  background-color: transparent;
+}
+
+.message-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.message-content {
+  max-width: 100%; /* Mensajes ocupan el 80% del ancho */
+  margin: 2px 0;
+  padding: 4px 10px 8px 10px;
+  border-radius: 12px;
+  position: relative; /* Para el pico */
+  word-wrap: break-word;
+
+  /* Estilos para mensajes propios */
+  &.self-message {
+      align-self: flex-end; /* Alinea el mensaje a la derecha */
+      background-color: #bcf3c6;
+      color: f2f2f2;
+
+      /* Pico hacia la izquierda */
+      &:after {
+          content: '';
+          position: absolute;
+          bottom: 10px;
+          right: -10px;
+          width: 0;
+          height: 0;
+          border-top: 10px solid transparent;
+          border-left: 10px solid #bcf3c6;
+          border-bottom: 10px solid transparent;
+      }
+  }
+
+  /* Estilos para mensajes de otros */
+  &.other-message {
+      align-self: flex-start; /* Alinea el mensaje a la izquierda */
+      background-color: #f2f2f2;
+      color: #5a5a5a;
+
+      /* Pico hacia la derecha */
+      &:after {
+          content: '';
+          position: absolute;
+          bottom: 10px;
+          left: -10px;
+          width: 0;
+          height: 0;
+          border-top: 10px solid transparent;
+          border-right: 10px solid #f2f2f2;
+          border-bottom: 10px solid transparent;
+      }
+  }
+}
+
+.timestamp {
+  font-size: 0.7rem;
+  color: #5a5a5a;
+  margin-bottom: 0px;
+}
+
+.message-text {
+  font-size: 0.8rem;
+  line-height: 1;
+  margin-bottom: 0px;
+}
+
+.chat-input {
+  display: flex;
+  gap: 10px;
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.chat-input button {
+  padding: 10px 20px;
+  border-radius: 8px;
+  background-color: #007bff;
+  color: #f2f2f2;
+  border: none;
+  cursor: pointer;
+}
+
+.chat-input button:hover {
+  background-color: #0056b3;
+}
+
+/* Nuevo panel de información */
+.info-panel {
+  flex: 1; /* Ocupa menos espacio que el chat */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  background-color: #f9f9f9;
+
+  /* Asegura que los botones no se amontonen en pantallas pequeñas */
+  button {
+      margin-bottom: 10px;
+  }
+}
+
+.info-panel h3 {
+  margin-bottom: 20px;
+  font-size: 18px;
+  color: #333;
+  text-align: center;
+}
+
+.info-button {
+  padding: 10px;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: 20px;
+  background-color: #007bff;
+  color: #f2f2f2;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.info-button:hover {
+  background-color: #0056b3;
+}
+
+/* Media Queries para pantallas pequeñas (dispositivos móviles) */
+@media screen and (max-width: 768px) {
+  .main-container {
+      flex-direction: column; /* Cambia el layout a columna */
+      gap: 10px; /* Reduce el espacio entre los elementos */
+  }
+
+  .chat-container {
+      width: 100%;
+      height: auto;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background-image: url('http://192.168.1.119:4200/assets/images/backgrounds/bg_chat.png'); /* Ruta de la imagen */
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      margin-top:10px;
+      height: 80vh;
+  }
+
+  .info-panel {
+      width: 100%;
+      order: 1;
+      margin-top: 10px;
+  }
+
+  .chat-input {
+      flex-direction: column; /* Los botones de entrada se alinean verticalmente */
+  }
+
+  .chat-input button {
+      width: 100%; /* Hace que el botón ocupe todo el ancho */
+      margin-top: 10px; /* Espacio entre el campo de texto y el botón */
+  }
+}

@@ -1,0 +1,157 @@
+<div class="form-container m-b-16">
+    <form #pedidoForm="ngForm" (ngSubmit)="onGeneratePedido(pedidoForm)">
+        <mat-form-field appearance="outline" class="w-80">
+            <mat-label>Descripción del Pedido</mat-label>
+            <input
+            matInput
+            name="detPedido"
+            ngModel
+            required
+            placeholder="Ingrese el detalle del pedido"
+            />
+        </mat-form-field>
+        <button mat-raised-button color="primary" type="submit" class="w-20">
+            GENERAR PEDIDO
+        </button>
+    </form>
+</div>
+
+<hr class="m-y-16" />
+
+<div class="table-responsive">
+    <div *ngFor="let group of groupedPedidos">
+        <!-- Fila del grupo -->
+        <div class="group-row bg-primary text-white p-2">
+          {{ group.group }}
+        </div>
+      
+        <!-- Tabla para los pedidos del grupo -->
+        <table mat-table [dataSource]="group.pedidos" class="w-100">
+          <!-- Código -->
+          <ng-container matColumnDef="cod_pedido">
+            <th mat-header-cell *matHeaderCellDef class="mat-subtitle-1 f-s-14" style="width:15%;">Código</th>
+            <td mat-cell *matCellDef="let pedido">
+              <a [routerLink]="['/extra/sample-page', pedido.cod_pedido]" 
+                 [queryParams]="{
+                   det_pedido: pedido.det_pedido, 
+                   userId: pedido.id_user, 
+                   est_pedido: pedido.est_pedido,
+                   pedidoId: pedido.id,
+                   roomId: pedido.id_room
+                 }">
+                <div class="d-flex align-items-center">
+                  <i class="iconify icon-20" data-icon="solar:clipboard-add-line-duotone"></i>  
+                  <span class="ms-2">{{ pedido.cod_pedido }}</span>
+                </div>
+              </a>
+            </td>
+          </ng-container>
+      
+          <!-- Detalle -->
+          <ng-container matColumnDef="det_pedido">
+            <th mat-header-cell *matHeaderCellDef class="mat-subtitle-1 f-s-14" style="width:60%;">Detalle</th>
+            <td mat-cell *matCellDef="let pedido">
+              <h6 class="mat-subtitle-1 f-s-16 text-primary">{{ pedido.det_pedido }}</h6>
+            </td>
+          </ng-container>
+      
+          <!-- Estado -->
+          <ng-container matColumnDef="est_pedido">
+            <th mat-header-cell *matHeaderCellDef class="mat-subtitle-1 f-s-14" style="width:15%;">Estado</th>
+            <td mat-cell *matCellDef="let pedido">
+              <span class="bg-light-primary f-s-12 f-w-500 p-x-10 p-y-4 rounded-pill">
+                {{ pedido.est_pedido | titlecase }}
+              </span>
+            </td>
+          </ng-container>
+      
+          <!-- Eliminar -->
+          <ng-container matColumnDef="eliminar">
+            <th mat-header-cell *matHeaderCellDef class="mat-subtitle-1 f-s-14" style="width:10%;">Eliminar</th>
+            <td mat-cell *matCellDef="let pedido">
+              <button mat-icon-button color="warn" (click)="onDeletePedido(pedido.id)">
+                <i class="iconify icon-25" data-icon="solar:clipboard-remove-line-duotone"></i>
+              </button>
+            </td>
+          </ng-container>
+      
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
+      
+</div>
+  
+
+<!-- <div class="table-responsive">
+    <table mat-table [dataSource]="dataSource" class="w-100">
+        <ng-container matColumnDef="products">
+            <th mat-header-cell *matHeaderCellDef class="mat-subtitle-1 f-s-14" style="width:20%;">
+                Código
+            </th>
+            <td mat-cell *matCellDef="let element" style="flex: 0 0 20%;">
+                <div class="d-flex align-items-center">
+                    <img [src]="element.imagePath" alt="users" width="20" class="rounded-7" />
+                    <div class="m-l-16 product-title">
+                        <h6 class="mat-subtitle-1 f-s-14 lh-sm">
+                            <a href="/extra/sample-page" style="text-decoration:none" class="text-primary">{{ element.uname }}</a>
+                        </h6>
+                    </div>
+                </div>
+            </td>
+        </ng-container>
+
+        <ng-container matColumnDef="payment">
+            <th mat-header-cell *matHeaderCellDef class="mat-subtitle-1 f-s-14" style="width:65%;">
+                Resumen
+            </th>
+            <td mat-cell *matCellDef="let element" style="flex: 0 0 65%;">
+                <h6 class="mat-subtitle-1 f-s-16">{{ element.price }}</h6>
+            </td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef class="mat-subtitle-1 f-s-14" style="width:10%;">
+                Estado
+            </th>
+            <td mat-cell *matCellDef="let element" style="flex: 0 0 10%;">
+                <span class="bg-light-{{ element.progress }} text-{{
+                  element.progress
+                }} f-s-12 f-w-500 p-x-10 p-y-4 rounded-pill">
+                    {{ element.status | titlecase }}
+                </span>
+            </td>
+        </ng-container>
+
+        <ng-container matColumnDef="menu">
+            <th mat-header-cell *matHeaderCellDef class="mat-subtitle-1 f-s-14" style="width:5%;"></th>
+            <td mat-cell *matCellDef="let element" style="flex: 0 0 5%;">
+                <button mat-icon-button [matMenuTriggerFor]="menu"
+                    aria-label="Example icon button with a vertical three dot icon">
+                    <mat-icon>more_vert</mat-icon>
+                </button>
+                <mat-menu #menu="matMenu" xPosition="before">
+                    <a href="javascript:void(0)"
+                        class="d-flex align-items-center text-decoration-none p-y-10 p-x-16 mat-body-1 gap-8">
+                        <i-tabler name="plus" class="icon-18"></i-tabler>
+                        <span>Agregar</span>
+                    </a>
+                    <a href="javascript:void(0)"
+                        class="d-flex align-items-center text-decoration-none p-y-10 p-x-16 mat-body-1 gap-8">
+                        <i-tabler name="edit" class="icon-18"></i-tabler>
+                        <span>Editar</span>
+                    </a>
+                    <a href="javascript:void(0)"
+                        class="d-flex align-items-center text-decoration-none p-y-10 p-x-16 mat-body-1 gap-8">
+                        <i-tabler name="trash" class="icon-18"></i-tabler>
+                        <span>Borrar</span>
+                    </a>
+                </mat-menu>
+            </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+    </table>
+</div>
+-->

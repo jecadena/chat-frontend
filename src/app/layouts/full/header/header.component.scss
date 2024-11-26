@@ -1,0 +1,23 @@
+.profile-btn-dd {
+    display: flex;
+    align-items: center; /* Centrar verticalmente el contenido */
+    gap: 10px; /* Espacio entre el ícono y el texto */
+    padding: 0 16px; /* Espaciado interno del botón */
+    text-transform: none; /* Deshabilitar transformación de texto si aplica Material */
+  }
+  
+  .profile-dd {
+    width: 35px;
+    height: 35px;
+    object-fit: cover;
+  }
+  
+  .profile-text {
+    font-size: 16px; /* Ajusta el tamaño del texto */
+    font-weight: bold; /* Hace el texto más llamativo */
+    line-height: 1; /* Asegura que el texto esté bien alineado */
+    position: relative;
+    top: -12px !important;
+    padding-left:10px;
+  }
+  
