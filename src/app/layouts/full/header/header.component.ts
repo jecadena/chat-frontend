@@ -7,6 +7,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from 'src/app/services/auth.service';
 import { Router } from '@angular/router';
 import { ChatService } from '../../../services/chat.service';
+import { Subject, interval } from 'rxjs';
+import { takeUntil, switchMap, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
+
 
 @Component({
   selector: 'app-header',
@@ -29,70 +33,116 @@ export class HeaderComponent implements OnInit, OnDestroy {
   nombres: string | null = '';
   apellidos: string | null = '';
 
-  private unreadMessagesInterval: NodeJS.Timeout | null = null; // Aquí cambia el tipo de la variable
+  private destroy$ = new Subject<void>();
 
   constructor(
     private authService: AuthService,
     private chatService: ChatService,
     private router: Router
-  ) {
-    this.loadUserData();
-  }
+  ) {}
 
   ngOnInit(): void {
-    this.startCheckingUnreadMessages();  // Iniciar el ciclo de verificación de mensajes no leídos
+    this.loadUserData();
+    this.subscribeToIncomingMessages();
+    this.startCheckingUnreadMessages();
   }
 
   ngOnDestroy(): void {
-    if (this.unreadMessagesInterval) {
-      clearInterval(this.unreadMessagesInterval); // Limpiar el intervalo al destruir el componente
-    }
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
-  loadUserData(): void {
+  /**
+   * Carga la información del usuario autenticado desde el servicio de autenticación.
+   */
+  private loadUserData(): void {
     const user = this.authService.getUser();
     if (user) {
       this.userId = user.id;
       this.role = user.role;
       this.nombres = user.de_nombres;
       this.apellidos = user.de_apellidos;
+    } else {
+      console.error('No se encontró información del usuario autenticado.');
+    }
+  }
 
-      this.chatService.receiveMessages().subscribe({
+  /**
+   * Suscribe al componente para recibir notificaciones de nuevos mensajes entrantes.
+   */
+  private subscribeToIncomingMessages(): void {
+    if (!this.userId) {
+      console.warn('El ID de usuario no está definido. No se puede suscribir a mensajes entrantes.');
+      return;
+    }
+
+    this.chatService
+      .receiveMessages()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
         next: (message) => {
           if (message.roomId && message.userId === this.userId) {
-            this.checkUnreadMessages();  // Verificar mensajes no leídos cuando llegue un nuevo mensaje
+            this.checkUnreadMessages();
           }
         },
-        error: (err) => console.error('Error al recibir mensajes:', err),
+        error: (err) => console.error('Error al recibir mensajes entrantes:', err),
       });
-    }
   }
 
-  startCheckingUnreadMessages(): void {
-    if (this.userId) {
-      this.unreadMessagesInterval = setInterval(() => {
-        this.checkUnreadMessages();
-      }, 10000); // Consultar cada 10 segundos
+  /**
+   * Inicia un intervalo para verificar periódicamente los mensajes no leídos.
+   */
+  private startCheckingUnreadMessages(): void {
+    if (!this.userId) {
+      console.warn('El ID de usuario no está definido. No se iniciará la verificación de mensajes no leídos.');
+      return;
     }
-  }
 
-  checkUnreadMessages(): void {
-    if (this.userId) {
-      this.chatService.getUnreadMessages(this.userId).subscribe({
+    interval(10000)
+      .pipe(
+        takeUntil(this.destroy$),
+        switchMap(() => {
+          if (this.userId) {
+            return this.chatService.getUnreadMessages(this.userId);
+          } else {
+            console.error('El userId es nulo o no está definido');
+            return of({ newMessagesCount: 0 }); // Retorna un observable con un valor por defecto
+          }
+        }),               
+        catchError((err) => {
+          console.error('Error al verificar mensajes no leídos:', err);
+          return []; // Retorna un arreglo vacío si ocurre un error.
+        })
+      )
+      .subscribe({
         next: (response) => {
-          this.newMessagesCount = response.newMessagesCount || 0;
+          this.newMessagesCount = response?.newMessagesCount || 0;
         },
-        error: (err) => {
-          console.error('Error al obtener mensajes no leídos:', err);
-          this.newMessagesCount = 0; // Resetear el conteo en caso de error
-        },
+        error: (err) => console.error('Error al actualizar conteo de mensajes no leídos:', err),
       });
-    } else {
-      console.error('El userId no está definido');
-    }
-  }  
+  }
 
-  logout() {
+  private checkUnreadMessages(): void {
+    if (!this.userId) {
+      console.error('El ID de usuario no está definido. No se puede verificar mensajes no leídos.');
+      return;
+    }
+
+    this.chatService.getUnreadMessages(this.userId).subscribe({
+      next: (response) => {
+        this.newMessagesCount = response?.newMessagesCount || 0;
+      },
+      error: (err) => {
+        console.error('Error al obtener mensajes no leídos:', err);
+        this.newMessagesCount = 0;
+      },
+    });
+  }
+
+  /**
+   * Cierra la sesión del usuario actual y redirige a la página de inicio de sesión.
+   */
+  logout(): void {
     this.authService.logout();
     this.router.navigate(['/authentication/login']);
   }

@@ -7,35 +7,105 @@
    <div class="row">
     <div class="col-md-10">
       <h6>{{ registroID }}</h6>
-      <p><strong>Glosa: </strong> {{ detPedido }}</p> 
+      <p><strong>Glosa: </strong> {{ detPedido }}
+        <span *ngIf="connectedUsers.length > 0">
+          Usuarios conectados:
+          <span *ngFor="let user of connectedUsers; let i = index">
+            {{ user.nombres }} {{ user.apellidos }}<span *ngIf="i < connectedUsers.length - 1">, </span>
+          </span>
+        </span>
+        <span *ngIf="connectedUsers.length === 0">No hay usuarios conectados</span>
+      </p>           
     </div>
     <div class="col-md-2 text-right">
       <button mat-raised-button color="primary" (click)="goBack()">REGRESAR</button>
     </div>
-  </div>  
-
+  </div>
+  
   <div class="main-container">
     <!-- Chat principal -->
     <div class="chat-container">
       <div #chatMessages class="chat-messages">
-        <div *ngFor="let msg of messages" class="message" [class.self]="msg.userId === userId"
-        [ngClass]="{
-          'self-message': msg.nombres === losnombres && msg.apellidos === losapellidos,
-          'other-message': !(msg.nombres === losnombres && msg.apellidos === losapellidos)
-        }">
-        <div class="message-content" 
+        <div *ngFor="let msg of messages" 
+            class="message" 
+            [class.self]="msg.userId === userId"
             [ngClass]="{
               'self-message': msg.nombres === losnombres && msg.apellidos === losapellidos,
               'other-message': !(msg.nombres === losnombres && msg.apellidos === losapellidos)
             }">
+          
+          <div class="message-content" 
+              [ngClass]="{
+                'self-message': msg.nombres === losnombres && msg.apellidos === losapellidos,
+                'other-message': !(msg.nombres === losnombres && msg.apellidos === losapellidos)
+              }">
+            
             <span class="timestamp">
               <strong>{{ msg.nombres }} {{ msg.apellidos }}</strong>
               <span class="message-time">{{ msg.timestamp | date: 'short' }}</span>
             </span>
-            <p class="message-text">{{ msg.message }}</p>
+            
+            <p class="message-text" *ngIf="msg.estado !== 'E'">{{ msg.message }}</p>
+            <p class="message-text-delete" *ngIf="msg.estado === 'E'">El mensaje fue eliminado</p>
+            
+            <!-- Flecha hacia abajo y menú de eliminación -->
+            <div class="message-actions" *ngIf="msg.userId === userId">
+              <button 
+                class="dropdown-button" 
+                (mouseenter)="toggleDeleteMenu(msg, true)" 
+                (mouseleave)="toggleDeleteMenu(msg, false)">
+                <i class="fa-regular fa-circle-xmark"></i>
+              </button>
+              
+              <!-- Menú de eliminación -->
+              <div 
+                class="delete-menu" 
+                *ngIf="msg.showDeleteMenu" 
+                (mouseenter)="toggleDeleteMenu(msg, true)" 
+                (mouseleave)="toggleDeleteMenu(msg, false)">
+                <button (click)="deleteMessage(msg)">Eliminar</button>
+              </div>
+            </div>
+          </div>
         </div>
+        <!--
+        <div *ngFor="let msg of messages" 
+            class="message" 
+            [class.self]="msg.userId === userId"
+            [ngClass]="{
+              'self-message': msg.nombres === losnombres && msg.apellidos === losapellidos,
+              'other-message': !(msg.nombres === losnombres && msg.apellidos === losapellidos)
+            }"
+            (mouseenter)="msg.showDeleteMenu = true" 
+            (mouseleave)="msg.showDeleteMenu = false">
+            
+          <div class="message-content" 
+              [ngClass]="{
+                'self-message': msg.nombres === losnombres && msg.apellidos === losapellidos,
+                'other-message': !(msg.nombres === losnombres && msg.apellidos === losapellidos)
+              }">
+              
+            <span class="timestamp">
+              <strong>{{ msg.nombres }} {{ msg.apellidos }}</strong>
+              <span class="message-time">{{ msg.timestamp | date: 'short' }}</span>
+            </span>
+            
+            <p class="message-text" *ngIf="msg.estado !== 'E'">{{ msg.message }}</p>
+            <p class="message-text" *ngIf="msg.estado === 'E'">El mensaje fue eliminado</p>
+            
+            <div class="message-actions" [ngClass]="{'visible': msg.showDeleteMenu}">
+              <button class="dropdown-button" (click)="toggleDeleteMenu(msg)">
+                <i class="fa-solid fa-angle-down"></i>
+              </button>
+              <div *ngIf="msg.showDeleteMenu" class="delete-menu">
+                <button (click)="deleteMessage(msg)">Eliminar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        -->
       </div>
-      </div>
+      
     
       <div class="chat-input">
         <input
@@ -44,18 +114,34 @@
           placeholder="Escribe tu mensaje..."
         />
         <button (click)="sendMessage()">Enviar</button>
+        
+        <!-- Botón de Upload con ícono -->
+        <label for="file-upload" class="upload-btn">
+          <i class="fa fa-upload"></i> <!-- Ícono de carga -->
+        </label>
+        
+        <!-- Input de tipo file para seleccionar archivos -->
+        <input
+          id="file-upload"
+          type="file"
+          accept=".xls,.xlsx,.doc,.docx,.pdf,.jpg,.png"
+          (change)="onFileSelected($event)"
+          style="display: none;"
+        />
       </div>
-    </div>   
+    </div>
   
     <!-- Nuevo panel al costado derecho -->
     <div class="info-panel">
+      <div id="documentos" class="documentos">
+        <h3>Documentos adjuntos</h3>
+        <button class="info-button" id="documento" (click)="viewDocuments()">Ver Documentos</button>
+      </div>
       <h3>Ingresar información</h3>
       <button class="info-button">Tarifa</button>
       <button class="info-button">Costo</button>
       <button class="info-button">Línea Aérea</button>
       <button class="info-button">Responsable</button>
     </div>
-  </div>  
-
-  
+  </div>
   

@@ -2,6 +2,7 @@ a {
     display: flex;
     align-items: center;
     text-decoration: none;
+    font-size: 0.8rem;
   }
   
   a .iconify {
@@ -9,3 +10,10 @@ a {
     font-size: 1.2rem;
   }
   
+  .detalle{
+    font-size: 0.8rem !important;
+  }
+
+  .texto-grupo{
+    font-size:0.8 rem !important;
+  }

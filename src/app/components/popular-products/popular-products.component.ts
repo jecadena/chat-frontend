@@ -7,24 +7,34 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { AuthService } from 'src/app/services/auth.service';
+import { MatExpansionModule } from '@angular/material/expansion';
 
 import Swal from 'sweetalert2';
 
-export interface Pedido {
+interface Pedido {
   id: string;
   cod_pedido: string;
   det_pedido: string;
+  id_user: string;
   est_pedido: string;
-  de_apellidos: string;
-  de_nombres: string;
   id_room: string;
-  id_user: number;
 }
 
-export interface PedidosResponse {
+interface Usuario {
+  nombre: string;
   pedidos: Pedido[];
-  message?: string;
 }
+
+interface Empresa {
+  logo: string;
+  usuarios: Record<string, Pedido[]>;
+}
+
+interface PedidosResponse {
+  empresas: Record<string, Empresa>;
+}
+
 
 @Component({
   selector: 'app-popular-products',
@@ -38,21 +48,38 @@ export interface PedidosResponse {
     MatButtonModule,
     MatTableModule,
     FormsModule,
-    RouterModule
+    RouterModule,
+    MatExpansionModule,
   ],
 })
 export class AppPopularProductsComponent implements OnInit {
   displayedColumns: string[] = ['cod_pedido', 'det_pedido', 'est_pedido', 'eliminar'];
   dataSource: Pedido[] = [];
   nuevoDetallePedido: string = '';
+  unreadChats: string[] = [];
 
-  constructor(private http: HttpClient) {}
+  userId: string | null = '';
+  role: string | null = '';
+  nombres: string | null = '';
+  apellidos: string | null = '';
+
+  groupedEmpresas: {
+    nombre: string;
+    logo: string;
+    usuarios: {
+      nombre: string;
+      pedidos: Pedido[];
+    }[];
+  }[] = [];
+
+  groupedPedidos: { group: string; pedidos: Pedido[] }[] = [];
+
+  constructor(private authService: AuthService, private http: HttpClient) {}
 
   ngOnInit() {
     this.fetchPedidos();
+    this.loadUserData();
   }
-
-  groupedPedidos: { group: string; pedidos: Pedido[] }[] = [];
 
   fetchPedidos() {
     const token = localStorage.getItem('token');
@@ -60,43 +87,47 @@ export class AppPopularProductsComponent implements OnInit {
       console.error('No se encontró un token de autenticación');
       return;
     }
-
+  
     const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
     this.http.get<PedidosResponse>('http://192.168.1.119:3000/api/pedidos/user', { headers })
       .subscribe(
         (data) => {
-          if (data.pedidos && data.pedidos.length > 0) {
-            // Ordenar y agrupar
-            const sortedPedidos = data.pedidos.sort((a, b) =>
-              a.de_apellidos.localeCompare(b.de_apellidos) ||
-              a.de_nombres.localeCompare(b.de_nombres)
-            );
-
-            this.groupedPedidos = sortedPedidos.reduce<{ group: string; pedidos: Pedido[] }[]>((acc, pedido) => {
-              const group = `${pedido.de_apellidos} ${pedido.de_nombres}`;
-              let groupObj = acc.find(g => g.group === group);
-              if (!groupObj) {
-                groupObj = { group, pedidos: [] };
-                acc.push(groupObj);
-              }
-              groupObj.pedidos.push(pedido);
-              return acc;
-            }, []);
-            
+          if (data.empresas) {
+            // Asegurarse de que 'pedidos' se interprete correctamente como un arreglo de 'Pedido'
+            this.groupedEmpresas = Object.entries(data.empresas).map(([empresaNombre, empresaData]) => ({
+              nombre: empresaNombre,
+              logo: empresaData.logo,
+              usuarios: Object.entries(empresaData.usuarios).map(([usuarioNombre, usuarioPedidos]) => ({
+                nombre: usuarioNombre,
+                pedidos: usuarioPedidos as Pedido[], // Asegurarse de que 'usuarioPedidos' es del tipo 'Pedido[]'
+              })),
+            }));
           } else {
-            this.groupedPedidos = [];
-            Swal.fire({ /* Configuración del Toast */ });
+            this.groupedEmpresas = [];
+            Swal.fire({
+              icon: 'info',
+              title: 'Sin datos',
+              text: 'No se encontraron empresas con pedidos.',
+              toast: true,
+              position: 'top-end',
+              showConfirmButton: true,
+              timer: 3000,
+            });
           }
         },
         (error) => {
           console.error('Error al cargar pedidos:', error.message || error);
-          Swal.fire({ /* Configuración del mensaje de error */ });
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Hubo un problema al intentar cargar los pedidos.',
+          });
         }
       );
-  }
+  }   
 
   onGeneratePedido(form: any) {
-    if (!form.value.detPedido) return; // Asegúrate de que el nombre coincida con el del formulario
+    if (!form.value.detPedido) return; 
 
     const token = localStorage.getItem('token');
     const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
@@ -105,18 +136,15 @@ export class AppPopularProductsComponent implements OnInit {
       .subscribe(
         (response: any) => {
           console.log('Pedido creado exitosamente', response);
-          this.fetchPedidos(); // Recargar la lista de pedidos después de crear uno nuevo
+          this.fetchPedidos();
           Swal.fire({
             icon: 'success',
             title: 'Pedido creado exitosamente',
             toast: true,
-            position: 'top-end', // Posición en la esquina superior derecha
-            showConfirmButton: false, // No muestra el botón de "Aceptar"
-            timer: 3000, // Duración del toast en milisegundos (3 segundos)
-            timerProgressBar: true, // Muestra una barra de progreso
-            customClass: {
-              popup: 'bg-info' // Personaliza los colores del fondo y el texto
-            }
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
           });
         },
         (error) => {
@@ -125,7 +153,6 @@ export class AppPopularProductsComponent implements OnInit {
             icon: 'error',
             title: 'Error al crear el pedido',
             text: error.error?.message || 'Hubo un problema al intentar crear el pedido.',
-            confirmButtonText: 'Aceptar'
           });
         }
       );
@@ -135,8 +162,6 @@ export class AppPopularProductsComponent implements OnInit {
   onDeletePedido(id: string) {
     const token = localStorage.getItem('token');
     const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
-
-    // Confirmación de eliminación
     Swal.fire({
       title: '¿Estás seguro?',
       text: 'Este pedido será eliminado permanentemente.',
@@ -146,7 +171,6 @@ export class AppPopularProductsComponent implements OnInit {
       cancelButtonText: 'Cancelar'
     }).then((result) => {
       if (result.isConfirmed) {
-        // Llamada al backend para eliminar el pedido
         this.http.delete(`http://192.168.1.119:3000/api/pedidos/${id}`, { headers })
           .subscribe(
             () => {
@@ -154,9 +178,7 @@ export class AppPopularProductsComponent implements OnInit {
                 icon: 'success',
                 title: 'Eliminado',
                 text: 'El pedido ha sido eliminado.',
-                confirmButtonText: 'Aceptar'
               });
-              // Recargar los pedidos después de la eliminación
               this.fetchPedidos();
             },
             (error) => {
@@ -164,11 +186,26 @@ export class AppPopularProductsComponent implements OnInit {
                 icon: 'error',
                 title: 'Error',
                 text: error.error?.message || 'Hubo un problema al eliminar el pedido.',
-                confirmButtonText: 'Aceptar'
               });
             }
           );
       }
     });
+  }
+
+  getChatStyle(chatId: string): string {
+    return this.unreadChats.includes(chatId) ? 'primary' : 'gray';
+  }
+
+  private loadUserData(): void {
+    const user = this.authService.getUser();
+    if (user) {
+      this.userId = user.id;
+      this.role = user.role;
+      this.nombres = user.de_nombres;
+      this.apellidos = user.de_apellidos;
+    } else {
+      console.error('No se encontró información del usuario autenticado.');
+    }
   }
 }

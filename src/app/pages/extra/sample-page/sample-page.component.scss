@@ -7,7 +7,7 @@
 .chat-container {
   display: flex;
   flex-direction: column;
-  height: 80vh;
+  height: 70vh;
   border: 1px solid #ccc;
   border-radius: 8px;
   padding: 10px;
@@ -121,6 +121,13 @@
   margin-bottom: 0px;
 }
 
+.message-text-delete {
+  font-size: 0.8rem;
+  line-height: 1;
+  margin-bottom: 0px;
+  color:#999999;
+}
+
 .chat-input {
   display: flex;
   gap: 10px;
@@ -131,6 +138,7 @@
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #ccc;
+  width: 100%;
 }
 
 .chat-input button {
@@ -146,9 +154,9 @@
   background-color: #0056b3;
 }
 
-/* Nuevo panel de información */
+
 .info-panel {
-  flex: 1; /* Ocupa menos espacio que el chat */
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -157,9 +165,18 @@
   padding: 10px;
   background-color: #f9f9f9;
 
-  /* Asegura que los botones no se amontonen en pantallas pequeñas */
   button {
       margin-bottom: 10px;
+  }
+}
+
+.documentos {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  button {
+      background-color:#07a807;
+      width: 100%;
   }
 }
 
@@ -186,11 +203,50 @@
   background-color: #0056b3;
 }
 
-/* Media Queries para pantallas pequeñas (dispositivos móviles) */
+.message-actions {
+  position: absolute;
+  top: -1px;
+  right: -10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dropdown-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #f54242;
+}
+
+.delete-menu {
+  display: flex;
+  flex-direction: column;
+  background-color: rgba(255,255,255,0.7);
+  border: 1px solid #ddd;
+  border-radius:12px;
+  position: absolute;
+  top: 10px;
+  right: 0;
+  padding: 5px;
+}
+
+.delete-menu button {
+  background: none;
+  border: none;
+  padding: 5px;
+  cursor: pointer;
+}
+
+.delete-menu button:hover {
+  background-color: #f5f5f5;
+}
+
 @media screen and (max-width: 768px) {
   .main-container {
-      flex-direction: column; /* Cambia el layout a columna */
-      gap: 10px; /* Reduce el espacio entre los elementos */
+      flex-direction: column;
+      gap: 10px;
   }
 
   .chat-container {
@@ -198,7 +254,7 @@
       height: auto;
       border: 1px solid #ccc;
       border-radius: 8px;
-      background-image: url('http://192.168.1.119:4200/assets/images/backgrounds/bg_chat.png'); /* Ruta de la imagen */
+      background-image: url('http://192.168.1.119:4200/assets/images/backgrounds/bg_chat.png');
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
@@ -213,11 +269,32 @@
   }
 
   .chat-input {
-      flex-direction: column; /* Los botones de entrada se alinean verticalmente */
+      flex-direction: column;
   }
 
   .chat-input button {
-      width: 100%; /* Hace que el botón ocupe todo el ancho */
-      margin-top: 10px; /* Espacio entre el campo de texto y el botón */
+      width: 100%;
+      margin-top: 10px;
   }
+}
+
+
+.chat-input {
+  display: flex;
+  align-items: center;
+}
+
+button {
+  margin-left: 10px; /* Espaciado entre el botón de Enviar y el de Upload */
+}
+
+.upload-btn {
+  cursor: pointer;
+  font-size: 24px;
+  margin-left: 10px;
+  color: #007bff; /* Color del ícono de carga */
+}
+
+.upload-btn:hover {
+  color: #0056b3; /* Cambio de color al pasar el mouse */
 }
