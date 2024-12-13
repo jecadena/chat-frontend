@@ -31,6 +31,7 @@ export class AuthService {
 
   // Obtiene los datos del usuario desde el localStorage
   getUser(): any {
+    console.log("Local Storage: ",localStorage);
     return JSON.parse(localStorage.getItem('user') || '{}');
   }
 

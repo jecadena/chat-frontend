@@ -17,7 +17,6 @@
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  margin-top: 10px;
 }
 
 
@@ -258,8 +257,7 @@
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
-      margin-top:10px;
-      height: 80vh;
+      max-height: 90vh;
   }
 
   .info-panel {
@@ -297,4 +295,35 @@ button {
 
 .upload-btn:hover {
   color: #0056b3; /* Cambio de color al pasar el mouse */
+}
+
+h6 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color:#0056b3;
+  margin-bottom:10px;
+  border-bottom: 1px dashed #c5c5c5;
+}
+
+.emoji-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.emoji-picker {
+  position: absolute;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 5px;
+  z-index: 1000;
+}
+
+.emoji {
+  cursor: pointer;
+  display: inline-block;
+  margin: 5px;
+  font-size: 20px;
 }

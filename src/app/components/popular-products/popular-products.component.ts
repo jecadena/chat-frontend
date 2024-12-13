@@ -9,6 +9,10 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { AuthService } from 'src/app/services/auth.service';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { takeUntil, switchMap, catchError } from 'rxjs/operators';
+import { Subject, interval, Subscription } from 'rxjs';
+import { ChatService } from '../../services/chat.service';
+import { of } from 'rxjs';
 
 import Swal from 'sweetalert2';
 
@@ -73,12 +77,19 @@ export class AppPopularProductsComponent implements OnInit {
   }[] = [];
 
   groupedPedidos: { group: string; pedidos: Pedido[] }[] = [];
+  newMessagesCount: number = 0;
+  private destroy$ = new Subject<void>();
+  private notificationsCheckSubscription: Subscription | null = null;
 
-  constructor(private authService: AuthService, private http: HttpClient) {}
+  constructor(
+    private authService: AuthService, 
+    private http: HttpClient,
+    private chatService: ChatService,) {}
 
   ngOnInit() {
     this.fetchPedidos();
     this.loadUserData();
+    this.startCheckingNotifications();
   }
 
   fetchPedidos() {
@@ -93,13 +104,12 @@ export class AppPopularProductsComponent implements OnInit {
       .subscribe(
         (data) => {
           if (data.empresas) {
-            // Asegurarse de que 'pedidos' se interprete correctamente como un arreglo de 'Pedido'
             this.groupedEmpresas = Object.entries(data.empresas).map(([empresaNombre, empresaData]) => ({
               nombre: empresaNombre,
               logo: empresaData.logo,
               usuarios: Object.entries(empresaData.usuarios).map(([usuarioNombre, usuarioPedidos]) => ({
                 nombre: usuarioNombre,
-                pedidos: usuarioPedidos as Pedido[], // Asegurarse de que 'usuarioPedidos' es del tipo 'Pedido[]'
+                pedidos: usuarioPedidos as Pedido[], 
               })),
             }));
           } else {
@@ -156,6 +166,42 @@ export class AppPopularProductsComponent implements OnInit {
           });
         }
       );
+  }
+
+  private startCheckingNotifications(): void {
+    if (!this.userId) {
+      console.warn('El ID de usuario no está definido. No se iniciará la verificación de notificaciones.');
+      return;
+    }
+  
+    // Iniciar intervalo para verificar notificaciones cada 10 segundos
+    this.notificationsCheckSubscription = interval(10000)
+      .pipe(
+        takeUntil(this.destroy$),
+        switchMap(() => {
+          return this.chatService.getNotifications(this.userId as string, this.role as string); // Asegúrate de que sea un string
+        }),
+        catchError((err) => {
+          console.error('Error al verificar notificaciones:', err);
+          return of({ newMessagesCount: 0 }); // Retorna un observable con un valor por defecto
+        })
+      )
+      .subscribe({
+        next: (response) => {
+          this.newMessagesCount = response.newMessagesCount;
+  
+          // Si no hay nuevos mensajes, aseguramos que el badge desaparezca
+          if (this.newMessagesCount === 0) {
+            this.hideBadge();
+          }
+        },
+        error: (err) => console.error('Error al actualizar conteo de mensajes no leídos:', err),
+      });
+  }
+
+  private hideBadge(): void {
+    this.newMessagesCount = 0; // Actualiza el conteo a 0
+    // Aquí puedes agregar lógica adicional para manejar la visualización del badge si es necesario
   }
 
   // Función para eliminar un pedido

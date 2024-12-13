@@ -1,21 +1,54 @@
-import { Component, Output, EventEmitter, OnInit, OnDestroy, Input, ViewEncapsulation } from '@angular/core';
+import {
+  Component,
+  Output,
+  EventEmitter,
+  OnInit,
+  OnDestroy,
+  Input,
+  ViewEncapsulation,
+} from '@angular/core';
 import { MaterialModule } from 'src/app/material.module';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from 'src/app/services/auth.service';
 import { Router } from '@angular/router';
 import { ChatService } from '../../../services/chat.service';
-import { Subject, interval } from 'rxjs';
+import { Subject, interval, Subscription, of } from 'rxjs';
 import { takeUntil, switchMap, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
 
+export interface NotificationResponse {
+  newMessagesCount: number;
+  solicitudes?: Array<{
+    id: number;
+    cod_pedido: string;
+    det_pedido: string;
+    id_user: string;
+    est_pedido: string;
+    id_room: string;
+  }>;
+}
+
+export interface Pedido {
+  cod_pedido: string;
+  det_pedido: string;
+  id_user: number;
+  est_pedido: string;
+  id: number;
+  id_room: number;
+}
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [RouterModule, CommonModule, NgScrollbarModule, MaterialModule, MatButtonModule],
+  imports: [
+    RouterModule,
+    CommonModule,
+    NgScrollbarModule,
+    MaterialModule,
+    MatButtonModule,
+  ],
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.scss'],
   encapsulation: ViewEncapsulation.None,
@@ -26,6 +59,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
   @Output() toggleMobileNav = new EventEmitter<void>();
   @Output() toggleCollapsed = new EventEmitter<void>();
 
+  notifications: Array<any> = [];
+  isNotificationPanelVisible: boolean = false;
+
   newMessagesCount: number = 0;
 
   userId: string | null = '';
@@ -34,27 +70,27 @@ export class HeaderComponent implements OnInit, OnDestroy {
   apellidos: string | null = '';
 
   private destroy$ = new Subject<void>();
+  private notificationsCheckSubscription: Subscription | null = null;
 
   constructor(
     private authService: AuthService,
     private chatService: ChatService,
-    private router: Router
+    private router: Router,
+    private activatedRoute: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
     this.loadUserData();
     this.subscribeToIncomingMessages();
-    this.startCheckingUnreadMessages();
+    this.startCheckingNotifications();
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.stopCheckingNotifications();
   }
 
-  /**
-   * Carga la información del usuario autenticado desde el servicio de autenticación.
-   */
   private loadUserData(): void {
     const user = this.authService.getUser();
     if (user) {
@@ -62,14 +98,108 @@ export class HeaderComponent implements OnInit, OnDestroy {
       this.role = user.role;
       this.nombres = user.de_nombres;
       this.apellidos = user.de_apellidos;
+
+      if (this.role === 'USER' && this.userId) {
+        this.checkNotifications();
+      }
     } else {
       console.error('No se encontró información del usuario autenticado.');
     }
   }
 
-  /**
-   * Suscribe al componente para recibir notificaciones de nuevos mensajes entrantes.
-   */
+  navigateToPedido(pedido: Pedido) {
+    const urlTree = this.router.createUrlTree(['/extra/sample-page', pedido.cod_pedido], {
+      queryParams: {
+        cod_pedido: pedido.cod_pedido,
+        det_pedido: pedido.det_pedido,
+        userId: pedido.id_user,
+        est_pedido: pedido.est_pedido,
+        pedidoId: pedido.id,
+        roomId: pedido.id_room,
+      },
+    });
+    const url = this.router.serializeUrl(urlTree);
+    window.location.href = url;
+  }
+
+  private checkNotifications(): void {
+    if (this.userId && this.role) {
+      this.chatService.getNotifications(this.userId, this.role).subscribe({
+        next: (response: NotificationResponse) => {
+          this.newMessagesCount = response.newMessagesCount;
+          this.notifications = response.solicitudes || []; // Almacena las notificaciones
+
+          // Maneja el evento de clic en las notificaciones
+          this.notifications.forEach((pedido) => {
+            // Asumiendo que cada `pedido` es un objeto del tipo `Pedido`
+            pedido.onClick = () => this.navigateToPedido(pedido);
+          });
+
+          if (this.newMessagesCount === 0) {
+            this.hideBadge();
+          }
+        },
+        error: (err) => {
+          console.error('Error al obtener las notificaciones:', err);
+          this.newMessagesCount = 0;
+        },
+      });
+    } else {
+      console.warn('User ID o role son null. No se pueden verificar las notificaciones.');
+      this.newMessagesCount = 0;
+    }
+  }
+
+  toggleNotificationPanel(): void {
+    this.isNotificationPanelVisible = !this.isNotificationPanelVisible;
+  }
+
+  private startCheckingNotifications(): void {
+    if (!this.userId || !this.role) {
+      console.warn(
+        'El ID de usuario o el role no están definidos. No se iniciará la verificación de notificaciones.'
+      );
+      return;
+    }
+
+    this.notificationsCheckSubscription = interval(3000)
+      .pipe(
+        takeUntil(this.destroy$),
+        switchMap(() => {
+          return this.chatService.getNotifications(
+            this.userId as string,
+            this.role as string
+          );
+        }),
+        catchError((err) => {
+          console.error('Error al verificar notificaciones:', err);
+          return of({ newMessagesCount: 0, solicitudes: [] }); // Proveer estructura válida
+        })
+      )
+      .subscribe({
+        next: (response: NotificationResponse) => {
+          this.newMessagesCount = response.newMessagesCount;
+          this.notifications = response.solicitudes || [];
+
+          if (this.newMessagesCount === 0) {
+            this.hideBadge();
+          }
+        },
+        error: (err) => console.error('Error al actualizar conteo de mensajes no leídos:', err),
+      });
+  }
+
+  private stopCheckingNotifications(): void {
+    if (this.notificationsCheckSubscription) {
+      this.notificationsCheckSubscription.unsubscribe();
+      this.notificationsCheckSubscription = null;
+    }
+  }
+
+  private hideBadge(): void {
+    this.newMessagesCount = 0;
+  }
+
   private subscribeToIncomingMessages(): void {
     if (!this.userId) {
       console.warn('El ID de usuario no está definido. No se puede suscribir a mensajes entrantes.');
@@ -89,39 +219,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
       });
   }
 
-  /**
-   * Inicia un intervalo para verificar periódicamente los mensajes no leídos.
-   */
-  private startCheckingUnreadMessages(): void {
-    if (!this.userId) {
-      console.warn('El ID de usuario no está definido. No se iniciará la verificación de mensajes no leídos.');
-      return;
-    }
-
-    interval(10000)
-      .pipe(
-        takeUntil(this.destroy$),
-        switchMap(() => {
-          if (this.userId) {
-            return this.chatService.getUnreadMessages(this.userId);
-          } else {
-            console.error('El userId es nulo o no está definido');
-            return of({ newMessagesCount: 0 }); // Retorna un observable con un valor por defecto
-          }
-        }),               
-        catchError((err) => {
-          console.error('Error al verificar mensajes no leídos:', err);
-          return []; // Retorna un arreglo vacío si ocurre un error.
-        })
-      )
-      .subscribe({
-        next: (response) => {
-          this.newMessagesCount = response?.newMessagesCount || 0;
-        },
-        error: (err) => console.error('Error al actualizar conteo de mensajes no leídos:', err),
-      });
-  }
-
   private checkUnreadMessages(): void {
     if (!this.userId) {
       console.error('El ID de usuario no está definido. No se puede verificar mensajes no leídos.');
@@ -129,7 +226,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     }
 
     this.chatService.getUnreadMessages(this.userId).subscribe({
-      next: (response) => {
+      next: (response: NotificationResponse) => {
         this.newMessagesCount = response?.newMessagesCount || 0;
       },
       error: (err) => {
@@ -139,9 +236,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Cierra la sesión del usuario actual y redirige a la página de inicio de sesión.
-   */
   logout(): void {
     this.authService.logout();
     this.router.navigate(['/authentication/login']);

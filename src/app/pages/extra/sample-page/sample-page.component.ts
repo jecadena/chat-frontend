@@ -7,6 +7,9 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
+import { ChangeDetectorRef } from '@angular/core';
+import { Subject, interval, Subscription } from 'rxjs';
+
 import Swal from 'sweetalert2';
 
 interface Document {
@@ -32,7 +35,9 @@ interface ConnectedUser {
   styleUrls: ['./sample-page.component.scss'],
 })
 export class ChatComponent implements OnInit, OnDestroy {
-  @ViewChild('chatMessages') chatMessages!: ElementRef;
+  //@ViewChild('chatMessages') chatMessages!: ElementRef;
+  @ViewChild('chatMessages', { static: true }) chatMessages!: ElementRef;
+  private userScrolled: boolean = false;
   registroID!: string;
   message: string = '';
   messages: {
@@ -49,12 +54,24 @@ export class ChatComponent implements OnInit, OnDestroy {
   eluserId: string = '1';
   detPedido: string = '';
   estPedido: string = '';
+  usuarioSolicitud: string = '';
+  roomSolicitud: string = '';
+  nu_solicitud: string = '';
   pedidoId: string = '';
   roomId: string = '';
   userData: { id: number; role: string; username: string; de_nombres: string; de_apellidos: string } | null = null;
   role: string | null = '';
   losnombres: string | null = '';
   losapellidos: string | null = '';
+
+  showEmojiPicker: boolean = false;
+  emojis: string[] = ['😀', '😂', '😍', '😎', '😢', '😡', '👍', '👎'];
+
+
+  private notificationCheckSubscription: Subscription | null = null;
+  newMessagesCount: number = 0;
+  private destroy$ = new Subject<void>();
+  private notificationsCheckSubscription: Subscription | null = null;
 
   connectedUsers: { userId: string; nombres: string; apellidos: string }[] = [];
 
@@ -63,70 +80,117 @@ export class ChatComponent implements OnInit, OnDestroy {
     private chatService: ChatService,
     private http: HttpClient,
     private router: Router,
-    private authService: AuthService
+    private authService: AuthService,
+    private cdr: ChangeDetectorRef
   ) {
     this.loadUserData();
+    this.loadURL();
   }
 
   ngOnInit(): void {
     this.userData = this.authService.getUser();
-    this.userId = this.userData?.id.toString() || '1';
+    console.log("Datos: ",this.userData);
+    if (!this.userData) {
+      console.error('Usuario no autenticado.');
+      return;
+    }
   
-    this.registroID = this.route.snapshot.paramMap.get('id')!;
-    this.detPedido = this.route.snapshot.queryParamMap.get('det_pedido')!;
-    this.estPedido = this.route.snapshot.queryParamMap.get('est_pedido')!;
-    this.pedidoId = this.route.snapshot.queryParamMap.get('pedidoId')!;
-    this.eluserId = this.route.snapshot.queryParamMap.get('userId')!;
+    this.userId = this.userData.id.toString();
     this.roomId = this.route.snapshot.queryParamMap.get('roomId')!;
-  
     if (!this.roomId) {
       console.error('Room ID es obligatorio');
       return;
     }
   
+    // Cargar mensajes iniciales
     this.loadMessages();
-      this.chatService.joinRoom(this.registroID);
-      
-      this.chatService.receiveMessages().subscribe((message) => {
-        console.log('Mensaje recibido desde el socket:', message);
-      
-        const formattedTimestamp = this.formatTimestamp(new Date());
-      
-        this.messages.push({
-          ...message,
-          nombres: message.nombres || 'Anónimo',
-          apellidos: message.apellidos || '',
-          senderId: message.userId,
-          timestamp: formattedTimestamp,
-          estado: message.estado || 'A',
-          showDeleteMenu: false,
-        });
-      
-        this.sortMessages();
-    });
-
-    this.chatService.receiveConnectedUsers().subscribe({
-      next: (users) => {
-          this.connectedUsers = users;
-          console.log('Usuarios conectados:', this.connectedUsers);
-      },
-      error: (err) => {
-          console.error('Error al recibir usuarios conectados:', err);
-      }
+  
+    // Unirse a la sala
+    this.chatService.joinRoom({
+      roomId: this.roomId,
+      userId: this.userId,
+      nombres: this.userData?.de_nombres || 'Anónimo',
+      apellidos: this.userData?.de_apellidos || '',
+      role: this.userData?.role || 'Usuario',
     });
     
-  }  
+    this.chatService.joinRoom({
+      roomId: this.roomId,
+      userId: this.userId,
+      nombres: this.userData?.de_nombres || 'Anónimo',
+      apellidos: this.userData?.de_apellidos || '',
+      role: this.userData?.role || 'Usuario',
+    });
+  
+    // Escuchar mensajes en tiempo real
+    this.chatService.receiveMessages().subscribe((message) => {
+      if (message) {
+        const formattedTimestamp = this.formatTimestamp(new Date());
+        this.messages.push({
+          ...message,
+          timestamp: formattedTimestamp,
+          showDeleteMenu: false,
+        });
+        this.sortMessages();
+        this.scrollToBottom();
+        this.cdr.detectChanges();
+      }
+    });   
+  
+    // Escuchar usuarios conectados
+    this.chatService.receiveConnectedUsers().subscribe((users) => {
+      this.connectedUsers = users;
+      console.log('Usuarios conectados:', this.connectedUsers);
+    });
+
+    this.userData = this.authService.getUser();
+    this.startNotificationCheck();
+  }
 
   ngAfterViewChecked(): void {
     this.scrollToBottom();
   }
 
-  scrollToBottom(): void {
+  /*scrollToBottom(): void {
     const chatContainer = this.chatMessages?.nativeElement;
     if (chatContainer) {
       chatContainer.scrollTop = chatContainer.scrollHeight;
     }
+  }*/
+
+    scrollToBottom(): void {
+      const chatContainer = this.chatMessages.nativeElement;
+      if (chatContainer && !this.userScrolled) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }
+  
+    onScroll(): void {
+      const chatContainer = this.chatMessages.nativeElement;
+      // Verifica si el usuario ha desplazado el contenedor manualmente
+      this.userScrolled = chatContainer.scrollTop < chatContainer.scrollHeight - chatContainer.clientHeight;
+    }
+
+  addEmoji(emoji: string) {
+    this.message += emoji;
+    this.showEmojiPicker = false;
   }
+
+  toggleEmojiPicker() {
+    this.showEmojiPicker = !this.showEmojiPicker;
+  }
+
+  loadURL(): void {
+    // Recuperar parámetros de la URL
+    this.registroID = this.route.snapshot.paramMap.get('cod_pedido')!;
+    this.detPedido = this.route.snapshot.queryParamMap.get('det_pedido')!;
+    this.estPedido = this.route.snapshot.queryParamMap.get('est_pedido')!;
+    this.pedidoId = this.route.snapshot.queryParamMap.get('pedidoId')!;
+    this.usuarioSolicitud = this.route.snapshot.queryParamMap.get('userId')!;
+    this.roomSolicitud = this.route.snapshot.queryParamMap.get('roomId')!;
+    this.nu_solicitud = this.roomSolicitud.substring(10);
+    console.log("Room Solicitud: ", this.roomSolicitud);
+  }  
 
   loadUserData(): void {
     const user = this.authService.getUser();
@@ -146,24 +210,22 @@ export class ChatComponent implements OnInit, OnDestroy {
         console.error('Token no encontrado');
         return;
       }
-  
       const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
       const localTimestamp = this.formatLocalTimestamp(new Date());
-  
-      // Asegurarte de que los datos de nombres y apellidos están correctamente asignados
       const nombres = this.losnombres || 'Anónimo';
       const apellidos = this.losapellidos || '';
+      const role = this.role || '';
   
-      // Enviar el mensaje a la API
       this.http
         .post(
           'http://192.168.1.119:3000/api/sendMessage',
           {
+            role,
             roomId: this.roomId,
             message: this.message,
             userId: this.userId,
-            nombres: nombres,  // Incluir los nombres
-            apellidos: apellidos,  // Incluir los apellidos
+            nombres,
+            apellidos,
             estado: 'A',
             timestamp: localTimestamp,
           },
@@ -177,11 +239,10 @@ export class ChatComponent implements OnInit, OnDestroy {
             console.error('Error al enviar mensaje:', error);
           }
         );
-  
-      // Enviar el mensaje a través del socket
-      this.chatService.sendMessageToSocket(this.roomId, this.message, this.userId, nombres, apellidos);
+      this.chatService.sendMessageToSocket(role, this.roomId, this.message, this.userId, nombres, apellidos);
     }
-  }
+    this.scrollToBottom();
+  }  
 
   loadMessages(): void {
     const token = localStorage.getItem('token');
@@ -219,7 +280,6 @@ export class ChatComponent implements OnInit, OnDestroy {
       );
   }
   
-
   sortMessages(): void {
     this.messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }
@@ -279,11 +339,33 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   goBack(): void {
+    // Emitir evento de salida al backend
+    this.chatService.leaveRoom(this.roomId, this.userId);
+  
+    // Navegar al dashboard
     this.router.navigate(['/dashboard']);
   }
+  
 
   ngOnDestroy(): void {
-    this.chatService.leaveRoom(this.registroID);
+    this.chatService.leaveRoom(this.registroID, this.userId);
+    if (this.notificationCheckSubscription) {
+      this.notificationCheckSubscription.unsubscribe();
+    }
+  }
+
+  private startNotificationCheck(): void {
+    this.notificationCheckSubscription = interval(2000).subscribe(() => {
+      this.checkAndUpdateNotifications();
+    });
+  }
+
+  /**
+   * Obtiene el roomId desde las rutas o parámetros.
+   */
+  private getRoomIdFromRoute(): string | null {
+    // Lógica para obtener el roomId de las rutas
+    return 'room5'; // Reemplaza con la lógica real de tu aplicación
   }
 
   // Este método se ejecuta cuando se selecciona un archivo
@@ -317,6 +399,40 @@ export class ChatComponent implements OnInit, OnDestroy {
         }
       );
     }
+  }
+
+  checkAndUpdateNotifications(): void {
+    console.log("Room ID Notificaciones: ",this.roomId);
+    console.log("Rol Notificaciones: ",this.role);
+    if (!this.connectedUsers || !this.roomId || !this.userData) return;
+    const isUserConnected = this.connectedUsers.some(
+      (user) => this.role === 'USER' && this.roomId === this.roomId
+    );
+    const isAdminConnected = this.connectedUsers.some(
+      (user) => this.role === 'ADMIN' && this.roomId === this.roomId
+    );
+    const userType = this.userData.role;
+    if (userType === 'USER' && !isAdminConnected) {
+      this.chatService.updateNotification(this.roomId, 'USER').subscribe(() => {
+        console.log('Notificación actualizada para USER.');
+      });
+    } else if (userType === 'ADMIN' && !isUserConnected) {
+      this.chatService.updateNotification(this.roomId, 'ADMIN').subscribe(() => {
+        console.log('Notificación actualizada para ADMIN.');
+      });
+    }
+  }
+ 
+  updateNotification(userType: string): void {
+    this.http
+      .post('/api/updateNotification', {
+        roomId: this.roomId,
+        userType,
+      })
+      .subscribe(
+        () => console.log('Notificación actualizada.'),
+        (error) => console.error('Error al actualizar la notificación:', error)
+      );
   }  
   
   loadAttachedDocuments(): void {

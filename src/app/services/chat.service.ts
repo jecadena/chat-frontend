@@ -33,9 +33,6 @@ export class ChatService {
     this.setupSocketListeners();
   }
 
-  /**
-   * Configurar los oyentes para eventos de Socket.IO.
-   */
   private setupSocketListeners(): void {
     this.socket.on('connect', () => {
       console.log('Conectado al servidor Socket.IO');
@@ -50,9 +47,6 @@ export class ChatService {
     });
   }
 
-  /**
-   * Obtener encabezados de autenticación para solicitudes HTTP.
-   */
   private getAuthHeaders(): HttpHeaders {
     const token = this.authService.getToken();
     if (!token) {
@@ -61,41 +55,32 @@ export class ChatService {
     return new HttpHeaders().set('Authorization', `Bearer ${token || ''}`);
   }
 
-  /**
-   * Validar si el userId es un UUID.
-   */
   private isValidUUID(userId: string): boolean {
     const regex = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
     return regex.test(userId);
   }
 
-  /**
-   * Unirse a una sala.
-   */
-  joinRoom(roomId: string): void {
-    if (!roomId) {
+
+  joinRoom(data: { roomId: string; userId: string; nombres: string; apellidos: string; role: string }): void {
+    if (!data.roomId) {
       console.warn('El ID de la sala es obligatorio.');
       return;
     }
-    console.log(`Uniéndose a la sala: ${roomId}`);
-    this.socket.emit('joinRoom', roomId);
-  }
+    console.log('Uniéndose a la sala con datos:', data);
+    this.socket.emit('joinRoom', data);
+  }  
 
-  /**
-   * Salir de una sala.
-   */
-  leaveRoom(roomId: string): void {
-    if (!roomId) {
-      console.warn('El ID de la sala es obligatorio.');
+
+  leaveRoom(roomId: string, userId: string): void {
+    if (!roomId || !userId) {
+      console.warn('Room ID y User ID son obligatorios para salir de la sala.');
       return;
     }
-    console.log(`Saliendo de la sala: ${roomId}`);
-    this.socket.emit('leaveRoom', roomId);
+    console.log(`Saliendo de la sala: ${roomId}, Usuario: ${userId}`);
+    this.socket.emit('leaveRoom', { roomId, userId });
   }
+  
 
-  /**
-   * Enviar un mensaje a través de la API.
-   */
   sendMessageToApi(roomId: string, message: string, userId: string): Observable<any> {
     const headers = this.getAuthHeaders();
     return this.http.post(`${this.apiUrl}/api/sendMessage`, { roomId, message, userId }, { headers }).pipe(
@@ -106,11 +91,16 @@ export class ChatService {
     );
   }
 
-  /**
-   * Enviar un mensaje a través de Socket.IO.
-   */
-  sendMessageToSocket(roomId: string, message: string, userId: string, nombres: string, apellidos: string): void {
+  sendMessageToSocket(
+    role: string,
+    roomId: string,
+    message: string,
+    userId: string,
+    nombres: string,
+    apellidos: string
+  ): void {
     const payload = {
+      role,
       roomId,
       message,
       userId,
@@ -118,35 +108,25 @@ export class ChatService {
       apellidos,
       timestamp: new Date().toISOString(),
     };
-    this.socket.emit('message', payload);
+    console.log('Enviando mensaje al socket:', payload); 
+    this.socket.emit('send_message', payload);
   }
-
-  /**
-   * Formatear fecha en formato local.
-   */
+  
   private formatLocalTimestamp(date: Date): string {
     const pad = (n: number) => (n < 10 ? `0${n}` : n);
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   }
 
-  /**
-   * Recibir mensajes en tiempo real.
-   */
   receiveMessages(): Observable<any> {
-    return new Observable((observer) => {
-      this.socket.on('newMessage', (message) => {
-        observer.next(message);
-        this.updateUnreadMessages(message.userId);
-      });
+    return fromEvent<any>(this.socket, 'receive_message').pipe(
+      tap((message) => console.log('Mensaje recibido desde el socket:', message)),
+      catchError((err) => {
+        console.error('Error al recibir mensajes desde el socket:', err);
+        return of(null);
+      })
+    );
+  }  
 
-      this.socket.on('disconnect', () => observer.complete());
-      this.socket.on('connect_error', (err) => observer.error(err));
-    });
-  }
-
-  /**
-   * Actualizar mensajes no leídos.
-   */
   private updateUnreadMessages(userId: string): void {
     if (!userId) {
       console.warn('El ID del usuario es obligatorio para actualizar mensajes no leídos.');
@@ -164,9 +144,6 @@ export class ChatService {
     });
   }
 
-  /**
-   * Recibir mensajes anteriores de la sala.
-   */
   receivePreviousMessages(): Observable<any> {
     return new Observable((observer) => {
       this.socket.on('previousMessages', (messages) => observer.next(messages));
@@ -175,10 +152,8 @@ export class ChatService {
     });
   }
 
-  /**
- * Consultar mensajes no leídos.
- */
 getUnreadMessages(userId: string): Observable<{ newMessagesCount: number }> {
+  console.log("Usuario: ",userId);
   const headers = this.getAuthHeaders();
   if (!userId) {
     console.error('El ID del usuario es obligatorio para consultar mensajes no leídos.');
@@ -191,7 +166,6 @@ getUnreadMessages(userId: string): Observable<{ newMessagesCount: number }> {
     })
   );
 }
-
 
   listenForErrors(): Observable<any> {
     return new Observable((observer) => {
@@ -209,7 +183,44 @@ getUnreadMessages(userId: string): Observable<{ newMessagesCount: number }> {
         return of([]); // Retorna un arreglo vacío en caso de error
       })
     );
-  }  
+  }
+
+  getNotifications(userId: string, role: string): Observable<{ newMessagesCount: number }> {
+    const headers = this.getAuthHeaders();
+    return this.http.get<{ newMessagesCount: number }>(
+        `${this.apiUrl}/api/notifications/${userId}?role=${role}`, 
+        { headers }
+    ).pipe(
+        catchError((err) => {
+            console.error('Error al obtener notificaciones:', err);
+            return of({ newMessagesCount: 0 });
+        })
+    );
+  }
+
+  getRoomData(roomId: string): Observable<any> {
+    const headers = this.getAuthHeaders();
+    return this.http.get<any>(`${this.apiUrl}/api/rooms/${roomId}`, { headers }).pipe(
+      catchError((err) => {
+        console.error('Error al obtener datos de la sala:', err);
+        return of(null); // Devuelve null o una estructura adecuada según tu caso
+      })
+    );
+  }
+  
+
+  updateNotification(roomId: string, userType: string): Observable<any> {
+    const url = `${this.apiUrl}/api/notifications/update`;
+    const body = { roomId, userType };
+
+    return this.http.post(url, body, { headers: this.getAuthHeaders() }).pipe(
+      tap(() => console.log('Notificación actualizada en el backend')),
+      catchError((err) => {
+        console.error('Error al actualizar la notificación:', err);
+        return of(null);
+      })
+    );
+  }
 
   ngOnDestroy(): void {
     this.destroy$.next();

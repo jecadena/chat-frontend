@@ -21,3 +21,56 @@
     padding-left:10px;
   }
   
+  .notification-panel {
+    position: relative;
+    top: 50px; /* Ajusta según la posición del botón */
+    right: 0;
+    background-color: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    width: 80%; /* Ajusta según el diseño */
+    z-index: 1000;
+    padding: 10px;
+  }
+  
+  .notification-panel ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .notification-panel li {
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .notification-panel li:last-child {
+    border-bottom: none;
+  }
+  
+  .notification-panel a {
+    text-decoration: none;
+    color: #007bff;
+    transition: color 0.2s;
+    font-size: 0.8rem;
+  }
+  
+  .notification-panel a:hover {
+    color: #0056b3;
+    font-size: 0.8rem;
+  }
+  
+  .mat-mdc-menu-panel {
+    max-width:80% !important
+  }
+
+  .notification-menu {
+    width: 80vw !important;
+    max-width: 600px;
+  }
+  
+  .texto-enlace{
+    text-decoration: none;
+    color: #0056b3;
+  }
